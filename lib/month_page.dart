@@ -230,8 +230,9 @@ class MonthPageContent extends StatelessWidget {
                 margin: const EdgeInsets.only(top: 2.0),
               );
             }
-            
-            Color finalDayTextColor = dayTextColor; // Use the determined dayTextColor
+
+            Color finalDayTextColor =
+                dayTextColor; // Use the determined dayTextColor
 
             if (isSelected) {
               cellAllBorder = Border.all(
@@ -242,7 +243,6 @@ class MonthPageContent extends StatelessWidget {
               // dayTextColor is already set based on whether it is today, weekend or default.
               dayTextWeight = FontWeight.w800; // Selected day is always bold
             }
-
 
             final FontWeight finalDayTextWeight = isSelected || isTodayDate
                 ? FontWeight.w800

@@ -21,7 +21,7 @@ void main() async {
   try {
     await initializeNotifications(); // Initialize notifications system
   } catch (e) {
-    print('Error initializing notifications: $e');
+    // print('Error initializing notifications: $e');
     // Continue running the app even if notifications fail
   }
   runApp(const CalendarApp());
@@ -603,7 +603,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final weekends = await getWeekendDaysForCurrentLocation();
     // Use the [0, 6] format (Sun=0, Sat=6) directly,
     // or default to it if `weekends` is null.
-    print("+++++++++++++++++++++${weekends}");
+    // print("+++++++++++++++++++++${weekends}");
     setState(() {
       _weekendDays = (weekends is List<int>) ? weekends as List<int> : [4, 6];
     });
@@ -970,7 +970,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       context: context,
       initialDate: initialPickerDate,
       firstDate: DateTime(1900), // Adjust as needed
-      lastDate: DateTime(2100),  // Adjust as needed
+      lastDate: DateTime(2100), // Adjust as needed
       initialDatePickerMode: DatePickerMode.year,
       helpText: 'SELECT MONTH & YEAR',
     );
@@ -982,16 +982,26 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
         // Update _selectedDate, try to preserve day, or pick a valid day
         int dayToSelect = _selectedDate?.day ?? _today.day;
-        final int daysInNewMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0).day;
+        final int daysInNewMonth = DateTime(
+          _focusedMonth.year,
+          _focusedMonth.month + 1,
+          0,
+        ).day;
         if (dayToSelect > daysInNewMonth) {
           dayToSelect = daysInNewMonth;
         }
-        _selectedDate = DateTime(_focusedMonth.year, _focusedMonth.month, dayToSelect);
+        _selectedDate = DateTime(
+          _focusedMonth.year,
+          _focusedMonth.month,
+          dayToSelect,
+        );
 
         // Re-initialize and jump the _monthPageController, similar to _toggleView
         final int targetMonthPage = _calculateMonthPageIndex(_focusedMonth);
-        
-        if (_monthPageController.hasClients) _monthPageController.dispose(); // Important: Dispose before re-creating
+
+        if (_monthPageController.hasClients)
+          _monthPageController
+              .dispose(); // Important: Dispose before re-creating
         _monthPageController = PageController(initialPage: targetMonthPage);
 
         // It's good practice to ensure the controller is rebuilt and page jump happens after build
@@ -1073,7 +1083,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
         title: InkWell(
           onTap: _selectMonthYear, // Call the new method
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0), // For better tap area
+            padding: const EdgeInsets.symmetric(
+              vertical: 12.0,
+              horizontal: 4.0,
+            ), // For better tap area
             child: Text(
               appBarTitleText,
               style: theme.appBarTheme.titleTextStyle?.copyWith(

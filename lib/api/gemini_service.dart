@@ -73,18 +73,18 @@ class GeminiService {
       if (event.description.isNotEmpty) {
         eventDetails += ", Description: ${event.description}";
       }
-      eventDetails += "\n";
+      eventDetails += "";
     }
 
     String promptContent =
-        "You are an advanced event summarizer with a deep understanding of scheduling and time management. Your expertise lies in effectively condensing complex event information into clear, concise summaries that highlight key details and relationships between events, including time differences. Your task is to summarize a multi-event or single-event schedule. Here are the details you need to consider: ${DateFormat.yMMMd().format(dateForEvents)}:\n\n" +
+        "You are an advanced event summarizer with a deep understanding of scheduling and time management. Your expertise lies in effectively condensing complex event information into clear, concise summaries that highlight key details and relationships between events, including time differences. Your task is to summarize a multi-event or single-event schedule. Here are the details you need to consider: ${DateFormat.yMMMd().format(dateForEvents)}:" +
         eventDetails +
         "Keep in mind to highlight the busiest time of the day, cluster events that are close to each other, calculate the time differences between these events, and note any implications if events occur during sleeping times. ";
 
     print("Formatted Prompt for Summary:\n$promptContent");
 
     final geminiApiUrl = Uri.parse(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$_apiKey",
     );
     final headers = {'Content-Type': 'application/json'};
     final body = jsonEncode({
@@ -106,7 +106,7 @@ class GeminiService {
         final responseData = jsonDecode(response.body);
         String summary =
             responseData['candidates'][0]['content']['parts'][0]['text'] ??
-            "Error: Could not parse summary from API response.";
+                "Error: Could not parse summary from API response.";
         print("GeminiService: Summary API call successful.");
         return summary;
       } else {
@@ -141,7 +141,7 @@ class GeminiService {
         'Please provide a direct Google Maps URL for the following location: "$placeName". '
         'The URL should be suitable for opening directly in a web browser or Google Maps application. '
         'If you can find a specific Google Maps URL, return *only* the URL itself and nothing else. '
-        'If you cannot find a specific Google Maps URL, or if the request is too ambiguous, return the exact string \'NOT_FOUND\'.';
+        'If you cannot find a specific Google Maps URL, or if the request is too ambiguous, return the exact string NOT_FOUND.';
 
     print("Formatted Prompt for Maps URL:\n$promptContent");
 
@@ -228,15 +228,69 @@ class GeminiService {
       "--- Gemini Service: sendSpecificEventDetailsToGemini --- (Simulated)",
     );
     String promptContent =
-        "Details for a specific event on ${DateFormat.yMMMd().format(eventDate)}:\n";
+        "Details for a specific event on ${DateFormat.yMMMd().format(eventDate)}:";
     final startTimeStr = DateFormat.jm().format(event.startTimeAsDateTime);
     final endTimeStr = DateFormat.jm().format(event.endTimeAsDateTime);
-    promptContent += "Event: ${event.title}\n";
-    promptContent += "Time: $startTimeStr - $endTimeStr\n";
+    promptContent += "Event: ${event.title}";
+    promptContent += "Time: $startTimeStr - $endTimeStr";
     if (event.description.isNotEmpty) {
-      promptContent += "Description: ${event.description}\n";
+      promptContent += "Description: ${event.description}";
     }
     print("Formatted Payload for specific event:\n$promptContent");
     print("--- End Gemini Service: sendSpecificEventDetailsToGemini ---");
+  }
+
+  Future<String> generateContent(String prompt) async {
+    print("--- Gemini Service: generateContent ---");
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      const String errorMessage = "Error: API Key is not set or is empty.";
+      print("GeminiService: $errorMessage");
+      return errorMessage;
+    }
+    print("GeminiService: API Key loaded.");
+    print("Requesting content for prompt: $prompt");
+
+    final geminiApiUrl = Uri.parse(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+    );
+    final headers = {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': _apiKey!,
+    };
+    final body = jsonEncode({
+      "contents": [
+        {
+          "parts": [
+            {"text": prompt},
+          ],
+        },
+      ],
+    });
+
+    try {
+      print("GeminiService: Sending content generation request to API...");
+      final response = await http
+          .post(geminiApiUrl, headers: headers, body: body)
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        String content =
+            responseData['candidates'][0]['content']['parts'][0]['text'] ??
+                "Error: Could not parse content from API response.";
+        print("GeminiService: Content generation API call successful.");
+        return content;
+      } else {
+        print(
+          "GeminiService: Content generation API call failed. Status: ${response.statusCode}, Body: ${response.body}",
+        );
+        return "Error: Failed to get content from AI (Status: ${response.statusCode}).";
+      }
+    } catch (e) {
+      print("GeminiService: Error fetching content - $e");
+      return "Error: Could not connect to AI service or an unexpected error occurred while fetching content.";
+    } finally {
+      print("--- End Gemini Service: generateContent ---");
+    }
   }
 }
