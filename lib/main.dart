@@ -403,7 +403,7 @@ class _CalendarAppState extends State<CalendarApp> {
     );
 
     return MaterialApp(
-      title: 'Scrollable Calendar',
+      title: 'O.P.A',
       theme: ThemeData(
         colorScheme: lightColorScheme,
         useMaterial3: true,
