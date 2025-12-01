@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import './api/gemini_service.dart';
+import 'app_drawer.dart';
 
 class AssistantPage extends StatefulWidget {
   const AssistantPage({super.key});
@@ -48,6 +49,7 @@ class _AssistantPageState extends State<AssistantPage> {
       appBar: AppBar(
         title: const Text('Assistant'),
       ),
+      drawer: const AppDrawer(currentRoute: 'assistant'),
       body: Column(
         children: [
           Expanded(

@@ -10,6 +10,7 @@ import './week_page.dart'; // Import WeekPageContent
 import './notification_service.dart'; // Import NotificationService
 import 'package:timezone/data/latest.dart' as tzdata;
 import './weekend_days.dart'; // <-- Add this import
+import './app_drawer.dart'; // Import AppDrawer
 
 // import \'package:flutter_dotenv/flutter_dotenv.dart\'; // Commented out, ensure it\'s handled if needed
 
@@ -1040,46 +1041,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leadingWidth: 60,
-        leading: Padding(
-          padding: const EdgeInsets.only(
-            left: 8.0,
-            top: 6.0,
-            bottom: 6.0,
-            right: 4.0,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: theme.colorScheme.onSurface.withOpacity(0.5),
-                width: 1.5,
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: TextButton(
-              onPressed: _goToToday,
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                alignment: Alignment.center,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(7),
-                ),
-              ),
-              child: Text(
-                DateFormat('d').format(_today),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color:
-                      theme.appBarTheme.titleTextStyle?.color ??
-                      theme.colorScheme.onPrimary,
-                  fontSize:
-                      (theme.appBarTheme.titleTextStyle?.fontSize ?? 20) * 0.95,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ),
+        // leading: automatically implied by drawer
         title: InkWell(
           onTap: _selectMonthYear, // Call the new method
           child: Padding(
@@ -1096,11 +1058,26 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
         ),
         actions: [
-          // IconButton(
-          //   icon: const Icon(Icons.refresh),
-          //   onPressed: _resetDatabase,
-          //   tooltip: 'Reset Database & Refresh Events',
-          // ),
+          // Go to Today Button (Moved from leading)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: TextButton(
+              onPressed: _goToToday,
+              style: TextButton.styleFrom(
+                 shape: CircleBorder(side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.5))),
+                 padding: const EdgeInsets.all(8),
+                 // Ensure minimum size for tap target
+                 minimumSize: const Size(40, 40),
+              ),
+               child: Text(
+                DateFormat('d').format(_today),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                   color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+          ),
           IconButton(
             icon: Icon(
               widget.themeMode == ThemeMode.light
@@ -1110,18 +1087,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
             onPressed: widget.onToggleTheme,
             tooltip: 'Toggle Theme',
           ),
-          IconButton(
-            icon: Icon(
-              _isWeekView
-                  ? Icons.calendar_month_outlined
-                  : Icons.view_week_outlined,
-            ),
-            onPressed: _toggleView,
-            tooltip: _isWeekView
-                ? 'Switch to Month View'
-                : 'Switch to Week View',
-          ),
+          // View Switcher Button REMOVED from here
         ],
+      ),
+      drawer: AppDrawer(
+        currentRoute: 'calendar',
+        onViewSwitch: _toggleView, // Pass the toggle function
+        isWeekView: _isWeekView, // Pass current view state
       ),
       body: Column(
         children: [

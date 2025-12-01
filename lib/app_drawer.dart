@@ -3,8 +3,15 @@ import 'assistant_page.dart';
 
 class AppDrawer extends StatelessWidget {
   final String currentRoute;
+  final VoidCallback? onViewSwitch;
+  final bool isWeekView;
 
-  const AppDrawer({super.key, required this.currentRoute});
+  const AppDrawer({
+    super.key,
+    required this.currentRoute,
+    this.onViewSwitch,
+    this.isWeekView = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +59,17 @@ class AppDrawer extends StatelessWidget {
               }
             },
           ),
+          if (currentRoute == 'calendar' && onViewSwitch != null) ...[
+             const Divider(),
+             ListTile(
+              leading: Icon(isWeekView ? Icons.calendar_month_outlined : Icons.view_week_outlined),
+              title: Text(isWeekView ? 'Switch to Month View' : 'Switch to Week View'),
+              onTap: () {
+                Navigator.pop(context); // Close drawer
+                onViewSwitch!();
+              },
+             ),
+          ],
         ],
       ),
     );
