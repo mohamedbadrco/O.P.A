@@ -1034,66 +1034,83 @@ class _CalendarScreenState extends State<CalendarScreen> {
         : (_focusedMonth ?? _today);
 
     final String monthText = DateFormat(
-      "MMMM",
+      "MMM",
     ).format(referenceDateForTitle).toUpperCase();
-    final String yearText = DateFormat("yy").format(referenceDateForTitle);
-    final String appBarTitleText = "$monthText $yearText";
+    final String yearText = DateFormat("yyyy").format(referenceDateForTitle);
+    final String appBarTitleText = referenceDateForTitle.year == _today.year
+        ? monthText
+        : "$monthText $yearText";
 
     return Scaffold(
       appBar: AppBar(
-        // leading: automatically implied by drawer
-        title: InkWell(
-          onTap: _selectMonthYear, // Call the new method
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              vertical: 12.0,
-              horizontal: 4.0,
-            ), // For better tap area
-            child: Text(
-              appBarTitleText,
-              style: theme.appBarTheme.titleTextStyle?.copyWith(
-                color: theme.colorScheme.onPrimary,
+        centerTitle: true,
+        title: Builder(
+          builder: (context) {
+            return InkWell(
+              onTap: _selectMonthYear,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  appBarTitleText,
+                  style: theme.appBarTheme.titleTextStyle?.copyWith(
+                    color: theme.colorScheme.onPrimary,
+                    fontSize: 16,
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
+        ),
+        leading: Builder(
+          builder: (context) {
+            return IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () {
+                Scaffold.of(context).openDrawer();
+              },
+            );
+          },
         ),
         actions: [
-          // Go to Today Button (Moved from leading)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: TextButton(
-              onPressed: _goToToday,
-              style: TextButton.styleFrom(
-                 shape: CircleBorder(side: BorderSide(color: theme.colorScheme.onSurface.withOpacity(0.5))),
-                 padding: const EdgeInsets.all(8),
-                 // Ensure minimum size for tap target
-                 minimumSize: const Size(40, 40),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: theme.colorScheme.onSurface.withOpacity(0.2),
+                ),
               ),
-               child: Text(
-                DateFormat('d').format(_today),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                   color: theme.colorScheme.onSurface,
+              child: TextButton(
+                onPressed: _goToToday,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  DateFormat('d').format(_today),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 18,
+                  ),
                 ),
               ),
             ),
           ),
-          IconButton(
-            icon: Icon(
-              widget.themeMode == ThemeMode.light
-                  ? Icons.dark_mode_outlined
-                  : Icons.light_mode_outlined,
-            ),
-            onPressed: widget.onToggleTheme,
-            tooltip: 'Toggle Theme',
-          ),
-          // View Switcher Button REMOVED from here
         ],
       ),
       drawer: AppDrawer(
         currentRoute: 'calendar',
-        onViewSwitch: _toggleView, // Pass the toggle function
-        isWeekView: _isWeekView, // Pass current view state
+        onViewSwitch: _toggleView,
+        isWeekView: _isWeekView,
+        onToggleTheme: widget.onToggleTheme,
+        themeMode: widget.themeMode,
       ),
       body: Column(
         children: [

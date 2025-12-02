@@ -5,12 +5,16 @@ class AppDrawer extends StatelessWidget {
   final String currentRoute;
   final VoidCallback? onViewSwitch;
   final bool isWeekView;
+  final VoidCallback? onToggleTheme;
+  final ThemeMode? themeMode;
 
   const AppDrawer({
     super.key,
     required this.currentRoute,
     this.onViewSwitch,
     this.isWeekView = false,
+    this.onToggleTheme,
+    this.themeMode,
   });
 
   @override
@@ -59,16 +63,26 @@ class AppDrawer extends StatelessWidget {
               }
             },
           ),
-          if (currentRoute == 'calendar' && onViewSwitch != null) ...[
+          if (currentRoute == 'calendar') ...[
              const Divider(),
-             ListTile(
-              leading: Icon(isWeekView ? Icons.calendar_month_outlined : Icons.view_week_outlined),
-              title: Text(isWeekView ? 'Switch to Month View' : 'Switch to Week View'),
-              onTap: () {
-                Navigator.pop(context); // Close drawer
-                onViewSwitch!();
-              },
-             ),
+             if (onViewSwitch != null)
+               ListTile(
+                leading: Icon(isWeekView ? Icons.calendar_month_outlined : Icons.view_week_outlined),
+                title: Text(isWeekView ? 'Switch to Month View' : 'Switch to Week View'),
+                onTap: () {
+                  Navigator.pop(context); // Close drawer
+                  onViewSwitch!();
+                },
+               ),
+             if (onToggleTheme != null && themeMode != null)
+               ListTile(
+                 leading: Icon(themeMode == ThemeMode.light ? Icons.dark_mode_outlined : Icons.light_mode_outlined),
+                 title: Text(themeMode == ThemeMode.light ? 'Switch to Dark Mode' : 'Switch to Light Mode'),
+                 onTap: () {
+                   Navigator.pop(context);
+                   onToggleTheme!();
+                 },
+               ),
           ],
         ],
       ),
