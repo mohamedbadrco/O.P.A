@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'assistant_page.dart';
+import 'main.dart';
 
 class AppDrawer extends StatelessWidget {
   final String currentRoute;
@@ -24,9 +25,7 @@ class AppDrawer extends StatelessWidget {
       child: Column(
         children: [
           DrawerHeader(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-            ),
+            decoration: BoxDecoration(color: theme.colorScheme.surface),
             child: Center(
               child: Text(
                 'O.P.A',
@@ -43,7 +42,7 @@ class AppDrawer extends StatelessWidget {
             title: const Text('Calendar'),
             selected: currentRoute == 'calendar',
             onTap: () {
-              Navigator.pop(context); // Close drawer
+              Navigator.pop(context);
               if (currentRoute != 'calendar') {
                 Navigator.of(context).popUntil((route) => route.isFirst);
               }
@@ -54,35 +53,68 @@ class AppDrawer extends StatelessWidget {
             title: const Text('Assistant'),
             selected: currentRoute == 'assistant',
             onTap: () {
-              Navigator.pop(context); // Close drawer
+              Navigator.pop(context);
               if (currentRoute != 'assistant') {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                      builder: (context) => const AssistantPage()),
+                    builder: (context) => const AssistantPage(),
+                  ),
                 );
               }
             },
           ),
           if (currentRoute == 'calendar') ...[
-             const Divider(),
-             if (onViewSwitch != null)
-               ListTile(
-                leading: Icon(isWeekView ? Icons.calendar_month_outlined : Icons.view_week_outlined),
-                title: Text(isWeekView ? 'Switch to Month View' : 'Switch to Week View'),
-                onTap: () {
-                  Navigator.pop(context); // Close drawer
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.calendar_month_outlined),
+              title: const Text('Month'),
+              onTap: () {
+                Navigator.pop(context);
+                if (isWeekView && onViewSwitch != null) {
                   onViewSwitch!();
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.view_week_outlined),
+              title: const Text('Week'),
+              onTap: () {
+                Navigator.pop(context);
+                if (!isWeekView && onViewSwitch != null) {
+                  onViewSwitch!();
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.view_day_outlined),
+              title: const Text('Day View'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => DayEventsScreen(
+                      date: DateTime.now(),
+                      onMasterListShouldUpdate: () {},
+                    ),
+                  ),
+                );
+              },
+            ),
+            if (onToggleTheme != null && themeMode != null)
+              ListTile(
+                leading: Icon(
+                  themeMode == ThemeMode.light
+                      ? Icons.dark_mode_outlined
+                      : Icons.light_mode_outlined,
+                ),
+                title: Text(
+                  themeMode == ThemeMode.light ? 'Dark Mode' : 'Light Mode',
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  onToggleTheme!();
                 },
-               ),
-             if (onToggleTheme != null && themeMode != null)
-               ListTile(
-                 leading: Icon(themeMode == ThemeMode.light ? Icons.dark_mode_outlined : Icons.light_mode_outlined),
-                 title: Text(themeMode == ThemeMode.light ? 'Switch to Dark Mode' : 'Switch to Light Mode'),
-                 onTap: () {
-                   Navigator.pop(context);
-                   onToggleTheme!();
-                 },
-               ),
+              ),
           ],
         ],
       ),
