@@ -85,7 +85,17 @@ class AppDrawer extends StatelessWidget {
               title: const Text('Month'),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.of(context).popUntil((route) => route.isFirst);
+                // If already on calendar:
+                if (currentRoute == 'calendar') {
+                  // If currently in week view, switch to month.
+                  if (isWeekView) {
+                    onViewSwitch?.call();
+                  }
+                  // If already in month view, do nothing (stay on page).
+                } else {
+                  // Not on calendar: go back to root (calendar).
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                }
               },
             ),
             ListTile(
@@ -93,32 +103,43 @@ class AppDrawer extends StatelessWidget {
               title: const Text('Week'),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.of(context).popUntil((route) => route.isFirst);
-                if (onViewSwitch != null) {
-                  onViewSwitch!();
+                // If already on calendar:
+                if (currentRoute == 'calendar') {
+                  // If currently in month view, switch to week.
+                  if (!isWeekView) {
+                    onViewSwitch?.call();
+                  }
+                  // If already in week view, do nothing.
+                } else {
+                  // Not on calendar: go to calendar (root) and request week view.
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  onViewSwitch?.call();
                 }
               },
             ),
             ListTile(
               leading: const Icon(Icons.view_day_outlined),
-              title: const Text('Day View'),
+              title: const Text('Day'),
               onTap: () {
                 Navigator.pop(context);
-                if (currentRoute != 'day') {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => DayEventsScreen(
-                        selectedDay: selectedDate ?? DateTime.now(),
-                        events: events,
-                        hourHeight: hourHeight,
-                        minHour: minHour,
-                        maxHour: maxHour,
-                        timeLabelWidth: timeLabelWidth,
-                        onEventTapped: onEventTapped ?? (event) {},
-                      ),
-                    ),
-                  );
+                // If already on day page -> just close drawer and stay.
+                if (currentRoute == 'day') {
+                  return;
                 }
+                // Otherwise push the day screen.
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => DayEventsScreen(
+                      selectedDay: selectedDate ?? DateTime.now(),
+                      events: events,
+                      hourHeight: hourHeight,
+                      minHour: minHour,
+                      maxHour: maxHour,
+                      timeLabelWidth: timeLabelWidth,
+                      onEventTapped: onEventTapped ?? (event) {},
+                    ),
+                  ),
+                );
               },
             ),
             if (onToggleTheme != null && themeMode != null)
