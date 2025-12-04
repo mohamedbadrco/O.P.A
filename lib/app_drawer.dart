@@ -21,7 +21,7 @@ class AppDrawer extends StatelessWidget {
     super.key,
     required this.currentRoute,
     this.onViewSwitch,
-    this.isWeekView = false,
+    this.isWeekView = true,
     this.onToggleTheme,
     this.themeMode,
     this.selectedDate,
