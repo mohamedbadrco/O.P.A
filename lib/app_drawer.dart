@@ -21,7 +21,7 @@ class AppDrawer extends StatelessWidget {
     super.key,
     required this.currentRoute,
     this.onViewSwitch,
-    this.isWeekView = true,
+    this.isWeekView = false,
     this.onToggleTheme,
     this.themeMode,
     this.selectedDate,
@@ -31,6 +31,7 @@ class AppDrawer extends StatelessWidget {
     this.maxHour = 23,
     this.timeLabelWidth = 50.0,
     this.onEventTapped,
+    required void Function(DateTime date) onOpenDayView,
   });
 
   @override
@@ -117,31 +118,7 @@ class AppDrawer extends StatelessWidget {
                 }
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.view_day_outlined),
-              title: const Text('Day'),
-              onTap: () {
-                Navigator.pop(context);
-                // If already on day page -> just close drawer and stay.
-                if (currentRoute == 'day') {
-                  return;
-                }
-                // Otherwise push the day screen.
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => DayEventsScreen(
-                      selectedDay: selectedDate ?? DateTime.now(),
-                      events: events,
-                      hourHeight: hourHeight,
-                      minHour: minHour,
-                      maxHour: maxHour,
-                      timeLabelWidth: timeLabelWidth,
-                      onEventTapped: onEventTapped ?? (event) {},
-                    ),
-                  ),
-                );
-              },
-            ),
+
             if (onToggleTheme != null && themeMode != null)
               ListTile(
                 leading: Icon(

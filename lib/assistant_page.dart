@@ -49,7 +49,7 @@ class _AssistantPageState extends State<AssistantPage> {
       appBar: AppBar(
         title: const Text('Assistant'),
       ),
-      drawer: const AppDrawer(currentRoute: 'assistant'),
+      drawer: AppDrawer(currentRoute: 'assistant', onOpenDayView: (DateTime date) {  },),
       body: Column(
         children: [
           Expanded(

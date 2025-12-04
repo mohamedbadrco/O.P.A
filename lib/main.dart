@@ -11,6 +11,7 @@ import './notification_service.dart'; // Import NotificationService
 import 'package:timezone/data/latest.dart' as tzdata;
 import './weekend_days.dart'; // <-- Add this import
 import './app_drawer.dart'; // Import AppDrawer
+import 'dart:math' as math;
 
 // import \'package:flutter_dotenv/flutter_dotenv.dart\'; // Commented out, ensure it\'s handled if needed
 
@@ -54,13 +55,28 @@ class DayScheduleView extends StatelessWidget {
             (a.startTimeAsTimeOfDay.hour * 60 + a.startTimeAsTimeOfDay.minute) -
             (b.startTimeAsTimeOfDay.hour * 60 + b.startTimeAsTimeOfDay.minute),
       );
+    final theme = Theme.of(context);
 
     return SingleChildScrollView(
-      child: Stack(
+      child: Column(
         children: [
-          _buildTimeSlots(context),
-          _buildEvents(context, todayEvents),
-          _buildCurrentTimeIndicator(context),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Text(
+              DateFormat.yMMMMEEEEd().format(date),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Stack(
+            children: [
+              _buildTimeSlots(context),
+              _buildEvents(context, todayEvents),
+              _buildCurrentTimeIndicator(context),
+            ],
+          ),
         ],
       ),
     );
@@ -116,6 +132,28 @@ class DayScheduleView extends StatelessWidget {
           ),
         ),
       );
+
+      // Add a dotted (dashed) line at the half-hour mark between hours
+      if (i < totalHours) {
+        final halfTop = i * hourHeight + (hourHeight / 2);
+        timeSlots.add(
+          Positioned(
+            top: halfTop,
+            left: 50,
+            right: 0,
+            child: SizedBox(
+              height: 1,
+              child: CustomPaint(
+                painter: DashedLinePainter(
+                  color: slotBorderColor,
+                  dashWidth: 6.0,
+                  dashGap: 4.0,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
     }
     double totalHeight = totalHours * hourHeight;
     return SizedBox(
@@ -543,6 +581,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     DateTime.now().day,
   );
 
+  // New: embedded Day view flag
+  bool _isDayView = false;
+
   bool _isWeekView = false;
   DateTime _focusedWeekStart = DateTime(
     DateTime.now().year,
@@ -874,6 +915,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
+  // Request the main screen to display the embedded Day view for [date]
+  void _openDayView(DateTime date) {
+    if (!mounted) return;
+    setState(() {
+      _isDayView = true;
+      _isWeekView = false;
+      _selectedDate = DateTime(date.year, date.month, date.day);
+      // Keep _focusedMonth/Week in sync if desired:
+      _focusedMonth = DateTime(_selectedDate!.year, _selectedDate!.month);
+      _focusedWeekStart = _selectedDate!.subtract(
+        Duration(days: _selectedDate!.weekday % 7),
+      );
+    });
+    _fetchAiDaySummary(_selectedDate!);
+  }
+
   void _addEvent(DateTime initialDate) async {
     final Event? newEvent = await Navigator.of(context).push<Event>(
       MaterialPageRoute(builder: (context) => AddEventPage(date: initialDate)),
@@ -901,24 +958,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _showDayEventsTimeSlotsPage(DateTime date) async {
-    if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => DayEventsScreen(
-          date: date,
-          onMasterListShouldUpdate: () async {
-            await _loadEventsFromDb();
-            if (_selectedDate != null &&
-                mounted &&
-                _selectedDate!.year == date.year &&
-                _selectedDate!.month == date.month &&
-                _selectedDate!.day == date.day) {
-              _fetchAiDaySummary(_selectedDate!);
-            }
-          },
-        ),
-      ),
-    );
+    // Open as embedded Day view (no push/pop)
+    _openDayView(date);
   }
 
   Future<void> _navigateToEventDetails(Event event) async {
@@ -1063,6 +1104,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ),
         leading: Builder(
           builder: (context) {
+            // When embedded Day view is active hide the drawer and show a back button
+            if (_isDayView) {
+              return IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  setState(() {
+                    _isDayView = false;
+                  });
+                },
+              );
+            }
             return IconButton(
               icon: const Icon(Icons.menu),
               onPressed: () {
@@ -1072,6 +1124,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
           },
         ),
         actions: [
+          if (_isDayView)
+            IconButton(
+              tooltip: 'Close Day View',
+              icon: Icon(
+                Icons.calendar_month,
+                color: theme.colorScheme.primary,
+              ),
+              onPressed: () {
+                setState(() {
+                  _isDayView = false;
+                });
+              },
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Container(
@@ -1105,182 +1170,216 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
         ],
       ),
-      drawer: AppDrawer(
-        currentRoute: 'calendar',
-        onViewSwitch: _toggleView,
-        isWeekView: _isWeekView,
-        onToggleTheme: widget.onToggleTheme,
-        themeMode: widget.themeMode,
-      ),
+      // Hide the drawer while in embedded Day view
+      drawer: _isDayView
+          ? null
+          : AppDrawer(
+              currentRoute: 'calendar',
+              onViewSwitch: _toggleView,
+              isWeekView: _isWeekView,
+              onToggleTheme: widget.onToggleTheme,
+              themeMode: widget.themeMode,
+              onOpenDayView: _openDayView,
+            ),
       body: Column(
         children: [
-          if (!_isWeekView)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Row(
-                children: weekDayNames.asMap().entries.map((entry) {
-                  // entry.key is the 0-6 index into STANDALONENARROWWEEKDAYS
-                  // _weekendDays uses Sun=0, Mon=1, ..., Sat=6
-
-                  // entry.key corresponds to Sun=0, Mon=1, ..., Sat=6
-                  int dayValueInOurScheme = entry.key;
-                  bool isHeaderWeekend = _weekendDays.contains(
-                    dayValueInOurScheme,
-                  );
-
-                  return Expanded(
-                    child: Center(
-                      child: Text(
-                        entry.value.toUpperCase(),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                          color: isHeaderWeekend
-                              ? selectedBlue
-                              : (theme.brightness == Brightness.dark
-                                    ? theme.colorScheme.onBackground
-                                          .withOpacity(0.7)
-                                    : theme.colorScheme.primary.withOpacity(
-                                        0.8,
-                                      )),
-                        ),
-                      ),
+          // If Day view requested show the embedded DayScheduleView replacing Month/Week area
+          if (_isDayView)
+            Expanded(
+              child: Builder(
+                builder: (context) {
+                  final DateTime day = _selectedDate ?? _today;
+                  final dayKey = DateTime(day.year, day.month, day.day);
+                  final dayEvents = _events[dayKey] ?? [];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: DayScheduleView(
+                      date: day,
+                      events: dayEvents,
+                      hourHeight: _hourHeight,
+                      TaminTime: TimeOfDay(hour: _minHour, minute: 0),
+                      TamaxTime: TimeOfDay(hour: _maxHour, minute: 59),
+                      onEventChanged: () async {
+                        await _loadEventsFromDb();
+                        if (_selectedDate != null)
+                          _fetchAiDaySummary(_selectedDate!);
+                      },
                     ),
                   );
-                }).toList(),
+                },
               ),
             ),
-          Expanded(
-            child: Padding(
-              padding: _isWeekView
-                  ? EdgeInsets.zero
-                  : const EdgeInsets.symmetric(horizontal: 8.0),
-              child: _isWeekView
-                  ? PageView.builder(
-                      controller: _weekPageController,
-                      onPageChanged: (pageIndex) {
-                        if (mounted) {
-                          setState(() {
-                            final newFocusedWeekStart =
-                                _getDateFromWeekPageIndex(pageIndex);
-                            _focusedWeekStart = newFocusedWeekStart;
+          if (!_isDayView) ...[
+            if (!_isWeekView)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  children: weekDayNames.asMap().entries.map((entry) {
+                    // entry.key is the 0-6 index into STANDALONENARROWWEEKDAYS
+                    // _weekendDays uses Sun=0, Mon=1, ..., Sat=6
 
-                            DateTime newSelectedDateCandidate =
-                                _selectedDate ?? newFocusedWeekStart;
-                            if (newSelectedDateCandidate.isBefore(
-                                  newFocusedWeekStart,
-                                ) ||
-                                newSelectedDateCandidate.isAfter(
-                                  newFocusedWeekStart.add(
-                                    const Duration(days: 6),
-                                  ),
-                                )) {
-                              _selectedDate = newFocusedWeekStart;
-                            } else {
-                              _selectedDate = DateTime(
-                                newFocusedWeekStart.year,
-                                newFocusedWeekStart.month,
-                                newSelectedDateCandidate.day,
-                              );
-                              if (_selectedDate!.month !=
-                                      newFocusedWeekStart.month &&
-                                  newFocusedWeekStart.day >
-                                      _selectedDate!.day) {
+                    // entry.key corresponds to Sun=0, Mon=1, ..., Sat=6
+                    int dayValueInOurScheme = entry.key;
+                    bool isHeaderWeekend = _weekendDays.contains(
+                      dayValueInOurScheme,
+                    );
+
+                    return Expanded(
+                      child: Center(
+                        child: Text(
+                          entry.value.toUpperCase(),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                            color: isHeaderWeekend
+                                ? selectedBlue
+                                : (theme.brightness == Brightness.dark
+                                      ? theme.colorScheme.onBackground
+                                            .withOpacity(0.7)
+                                      : theme.colorScheme.primary.withOpacity(
+                                          0.8,
+                                        )),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            Expanded(
+              child: Padding(
+                padding: _isWeekView
+                    ? EdgeInsets.zero
+                    : const EdgeInsets.symmetric(horizontal: 8.0),
+                child: _isWeekView
+                    ? PageView.builder(
+                        controller: _weekPageController,
+                        onPageChanged: (pageIndex) {
+                          if (mounted) {
+                            setState(() {
+                              final newFocusedWeekStart =
+                                  _getDateFromWeekPageIndex(pageIndex);
+                              _focusedWeekStart = newFocusedWeekStart;
+
+                              DateTime newSelectedDateCandidate =
+                                  _selectedDate ?? newFocusedWeekStart;
+                              if (newSelectedDateCandidate.isBefore(
+                                    newFocusedWeekStart,
+                                  ) ||
+                                  newSelectedDateCandidate.isAfter(
+                                    newFocusedWeekStart.add(
+                                      const Duration(days: 6),
+                                    ),
+                                  )) {
                                 _selectedDate = newFocusedWeekStart;
+                              } else {
+                                _selectedDate = DateTime(
+                                  newFocusedWeekStart.year,
+                                  newFocusedWeekStart.month,
+                                  newSelectedDateCandidate.day,
+                                );
+                                if (_selectedDate!.month !=
+                                        newFocusedWeekStart.month &&
+                                    newFocusedWeekStart.day >
+                                        _selectedDate!.day) {
+                                  _selectedDate = newFocusedWeekStart;
+                                }
                               }
-                            }
-                            if (_selectedDate != null) {
-                              _fetchAiDaySummary(_selectedDate!);
-                            }
-                          });
-                        }
-                      },
-                      itemBuilder: (context, pageIndex) {
-                        final weekStart = _getDateFromWeekPageIndex(pageIndex);
-                        return WeekPageContent(
-                          weekStart: weekStart,
-                          today: _today,
-                          events: _events,
-                          hourHeight: _hourHeight,
-                          minHour: _minHour,
-                          maxHour: _maxHour,
-                          timeLabelWidth: _timeLabelWidth,
-                          onShowDayEvents: _showDayEventsTimeSlotsPage,
-                          onEventTapped: _navigateToEventDetails,
-                          onGoToPreviousWeek: _goToPreviousWeek,
-                          onGoToNextWeek: _goToNextWeek,
-                          weekendDays: _weekendDays, // <-- Pass weekend days
-                          weekendColor: selectedBlue, // <-- Pass color
-                        );
-                      },
-                    )
-                  : PageView.builder(
-                      controller: _monthPageController,
-                      onPageChanged: (pageIndex) {
-                        if (mounted) {
-                          setState(() {
-                            final newFocusedMonth = _getDateFromMonthPageIndex(
-                              pageIndex,
-                            );
-                            _focusedMonth = newFocusedMonth;
-
-                            int dayToSelect = _selectedDate?.day ?? _today.day;
-                            DateTime candidateDate;
-                            try {
-                              candidateDate = DateTime(
-                                _focusedMonth.year,
-                                _focusedMonth.month,
-                                dayToSelect,
-                              );
-                            } catch (e) {
-                              candidateDate = DateTime(
-                                _focusedMonth.year,
-                                _focusedMonth.month + 1,
-                                0,
-                              );
-                            }
-
-                            if (_selectedDate != candidateDate) {
-                              _selectedDate = candidateDate;
                               if (_selectedDate != null) {
                                 _fetchAiDaySummary(_selectedDate!);
                               }
-                            } else if (_selectedDate == null) {
-                              _aiDaySummary =
-                                  "Select a day to see its AI summary.";
-                              _isFetchingAiSummary = false;
-                            }
-                          });
-                        }
-                      },
-                      itemBuilder: (context, pageIndex) {
-                        final month = _getDateFromMonthPageIndex(pageIndex);
-                        return MonthPageContent(
-                          monthToDisplay: month,
-                          selectedDate: _selectedDate,
-                          today: _today,
-                          events: _events,
-                          isFetchingAiSummary: _isFetchingAiSummary,
-                          aiDaySummary: _aiDaySummary,
-                          onDateSelected: (date) {
-                            if (mounted) {
-                              setState(() {
-                                _selectedDate = date;
-                              });
-                              if (_selectedDate != null) {
-                                _fetchAiDaySummary(_selectedDate!);
+                            });
+                          }
+                        },
+                        itemBuilder: (context, pageIndex) {
+                          final weekStart = _getDateFromWeekPageIndex(
+                            pageIndex,
+                          );
+                          return WeekPageContent(
+                            weekStart: weekStart,
+                            today: _today,
+                            events: _events,
+                            hourHeight: _hourHeight,
+                            minHour: _minHour,
+                            maxHour: _maxHour,
+                            timeLabelWidth: _timeLabelWidth,
+                            onShowDayEvents: _showDayEventsTimeSlotsPage,
+                            onEventTapped: _navigateToEventDetails,
+                            onGoToPreviousWeek: _goToPreviousWeek,
+                            onGoToNextWeek: _goToNextWeek,
+                            weekendDays: _weekendDays, // <-- Pass weekend days
+                            weekendColor: selectedBlue, // <-- Pass color
+                          );
+                        },
+                      )
+                    : PageView.builder(
+                        controller: _monthPageController,
+                        onPageChanged: (pageIndex) {
+                          if (mounted) {
+                            setState(() {
+                              final newFocusedMonth =
+                                  _getDateFromMonthPageIndex(pageIndex);
+                              _focusedMonth = newFocusedMonth;
+
+                              int dayToSelect =
+                                  _selectedDate?.day ?? _today.day;
+                              DateTime candidateDate;
+                              try {
+                                candidateDate = DateTime(
+                                  _focusedMonth.year,
+                                  _focusedMonth.month,
+                                  dayToSelect,
+                                );
+                              } catch (e) {
+                                candidateDate = DateTime(
+                                  _focusedMonth.year,
+                                  _focusedMonth.month + 1,
+                                  0,
+                                );
                               }
-                            }
-                          },
-                          onDateDoubleTap: _addEvent,
-                          onShowDayEvents: _showDayEventsTimeSlotsPage,
-                          weekendDays: _weekendDays, // <-- Pass weekend days
-                          weekendColor: selectedBlue, // <-- Pass color
-                        );
-                      },
-                    ),
+
+                              if (_selectedDate != candidateDate) {
+                                _selectedDate = candidateDate;
+                                if (_selectedDate != null) {
+                                  _fetchAiDaySummary(_selectedDate!);
+                                }
+                              } else if (_selectedDate == null) {
+                                _aiDaySummary =
+                                    "Select a day to see its AI summary.";
+                                _isFetchingAiSummary = false;
+                              }
+                            });
+                          }
+                        },
+                        itemBuilder: (context, pageIndex) {
+                          final month = _getDateFromMonthPageIndex(pageIndex);
+                          return MonthPageContent(
+                            monthToDisplay: month,
+                            selectedDate: _selectedDate,
+                            today: _today,
+                            events: _events,
+                            isFetchingAiSummary: _isFetchingAiSummary,
+                            aiDaySummary: _aiDaySummary,
+                            onDateSelected: (date) {
+                              if (mounted) {
+                                setState(() {
+                                  _selectedDate = date;
+                                });
+                                if (_selectedDate != null) {
+                                  _fetchAiDaySummary(_selectedDate!);
+                                }
+                              }
+                            },
+                            onDateDoubleTap: _addEvent,
+                            onShowDayEvents: _showDayEventsTimeSlotsPage,
+                            weekendDays: _weekendDays, // <-- Pass weekend days
+                            weekendColor: selectedBlue, // <-- Pass color
+                          );
+                        },
+                      ),
+              ),
             ),
-          ),
+          ],
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -1297,5 +1396,36 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ),
       ),
     );
+  }
+}
+
+class DashedLinePainter extends CustomPainter {
+  final Color color;
+  final double dashWidth;
+  final double dashGap;
+
+  DashedLinePainter({
+    required this.color,
+    this.dashWidth = 4.0,
+    this.dashGap = 2.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    double startX = 0;
+    while (startX < size.width) {
+      canvas.drawLine(Offset(startX, 0), Offset(startX + dashWidth, 0), paint);
+      startX += dashWidth + dashGap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false;
   }
 }
