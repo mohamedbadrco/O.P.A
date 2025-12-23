@@ -188,6 +188,13 @@ class _AssistantPageState extends State<AssistantPage> {
               itemBuilder: (context, index) {
                 final message = _messages[index];
                 final isUser = message['role'] == 'user';
+                // Use blue for AI message bubbles, keep user as primaryContainer
+                final bubbleColor = isUser
+                    ? theme.colorScheme.primaryContainer
+                    : Colors.blue[50];
+                final textColor = isUser
+                    ? theme.colorScheme.onPrimaryContainer
+                    : Colors.blue[900];
                 return Align(
                   alignment: isUser
                       ? Alignment.centerRight
@@ -196,18 +203,12 @@ class _AssistantPageState extends State<AssistantPage> {
                     margin: const EdgeInsets.symmetric(vertical: 4.0),
                     padding: const EdgeInsets.all(12.0),
                     decoration: BoxDecoration(
-                      color: isUser
-                          ? theme.colorScheme.primaryContainer
-                          : theme.colorScheme.secondaryContainer,
+                      color: bubbleColor,
                       borderRadius: BorderRadius.circular(12.0),
                     ),
                     child: Text(
                       message['content'] ?? '',
-                      style: TextStyle(
-                        color: isUser
-                            ? theme.colorScheme.onPrimaryContainer
-                            : theme.colorScheme.onSecondaryContainer,
-                      ),
+                      style: TextStyle(color: textColor),
                     ),
                   ),
                 );
