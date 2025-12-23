@@ -106,7 +106,10 @@ Suggested: **MIT License**. Add a `LICENSE` file to apply it.
 
 ## ✉️ Contact
 
-- Your Name — your.email@example.com
+- Mohamed badr mo
+- Email: mohamedbadrco@gmail.com
+- GitHub: [@mohamedbadrco](https://github.com/mohamedbadrco)
+
 
 ---
 
