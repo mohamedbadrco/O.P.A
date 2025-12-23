@@ -78,14 +78,6 @@ Please follow the project's code style and add tests for new behavior.
 
 ---
 
-## 📸 Screenshots
-
-Add screenshots to `assets/` and reference them here to show the Day/Week/Month views.
-
-> Example:
-> ![Screenshot](assets/screenshot.png)
-
----
 
 ## 📜 License
 
