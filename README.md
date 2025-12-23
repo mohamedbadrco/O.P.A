@@ -100,7 +100,11 @@ Add screenshots to `assets/` and reference them here to showcase Day/Week/Month 
 
 ## 📜 License
 
-Suggested: **MIT License**. Add a `LICENSE` file to apply it.
+This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International (**CC BY‑NC 4.0**). See `LICENSE` for full terms.
+
+**Commercial use is prohibited** without explicit permission — contact the author if you need a commercial license.
+
+> Note: CC licenses are commonly used for content (docs, images). If you want a software-specific non-commercial license (or a proprietary "all rights reserved" approach) for the code itself, consider PolyForm Noncommercial or a custom proprietary license and consult legal counsel.
 
 ---
 
@@ -110,12 +114,3 @@ Suggested: **MIT License**. Add a `LICENSE` file to apply it.
 - Email: mohamedbadrco@gmail.com
 - GitHub: [@mohamedbadrco](https://github.com/mohamedbadrco)
 
-
----
-
-If you'd like, I can also:
-- Add badges (CI, Flutter version, license),
-- Insert placeholder screenshots into `assets/`, or
-- Create a `LICENSE` file (MIT) and commit it.
-
-Which would you like me to do next? ✅
