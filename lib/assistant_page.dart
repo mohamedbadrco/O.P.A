@@ -17,6 +17,21 @@ class _AssistantPageState extends State<AssistantPage> {
   bool _isLoading = false;
   DateTime _selectedDate = DateTime.now();
 
+  @override
+  void initState() {
+    super.initState();
+    _loadMessagesForSelectedDate();
+  }
+
+  Future<void> _loadMessagesForSelectedDate() async {
+    final dateString = _selectedDate.toIso8601String().substring(0, 10);
+    final msgs = await DatabaseHelper.instance.getMessagesForDate(dateString);
+    setState(() {
+      _messages.clear();
+      _messages.addAll(msgs.map((m) => {'role': m.role, 'content': m.content}));
+    });
+  }
+
   Future<void> _pickDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -28,6 +43,7 @@ class _AssistantPageState extends State<AssistantPage> {
       setState(() {
         _selectedDate = picked;
       });
+      await _loadMessagesForSelectedDate();
     }
   }
 
@@ -40,22 +56,32 @@ class _AssistantPageState extends State<AssistantPage> {
   void _sendMessage() async {
     if (_controller.text.trim().isEmpty) return;
 
-    final userMessage = _controller.text;
-    setState(() {
-      _messages.add({'role': 'user', 'content': userMessage});
-      _isLoading = true;
-    });
+    final userMessage = _controller.text.trim();
     _controller.clear();
 
+    final dateString = _selectedDate.toIso8601String().substring(0, 10);
+    final userMsg = AssistantMessage(
+      date: dateString,
+      role: 'user',
+      content: userMessage,
+      timestamp: DateTime.now().toIso8601String(),
+    );
+
     try {
+      // Optimistically add the user's message to UI and persist it
+      setState(() {
+        _messages.add({'role': 'user', 'content': userMessage});
+        _isLoading = true;
+      });
+      await DatabaseHelper.instance.insertAssistantMessage(userMsg);
+
       // Fetch events for the selected date to include as context
       final List<Event> events = await DatabaseHelper.instance.getEventsForDate(
         _selectedDate,
       );
       String eventContext;
       if (events.isEmpty) {
-        eventContext =
-            "No events scheduled for ${_selectedDate.toIso8601String().substring(0, 10)}.";
+        eventContext = "No events scheduled for $dateString.";
       } else {
         final buffer = StringBuffer();
         for (var event in events) {
@@ -70,18 +96,44 @@ class _AssistantPageState extends State<AssistantPage> {
         eventContext = buffer.toString();
       }
 
-      final prompt =
-          "Date: ${_selectedDate.toIso8601String().substring(0, 10)}\nEvents:\n$eventContext\n\nUser question: $userMessage";
+      // Fetch last 10 messages for context
+      final List<AssistantMessage> history = await DatabaseHelper.instance
+          .getLastMessagesForDate(dateString, 10);
+      final histBuffer = StringBuffer();
+      for (var m in history) {
+        final who = m.role == 'user' ? 'User' : 'AI';
+        histBuffer.writeln("$who: ${m.content}");
+      }
 
-      // Call Gemini Service with events as context
+      final prompt =
+          "Date: $dateString\nEvents:\n$eventContext\n\nConversation history:\n${histBuffer.toString()}\nNew question: $userMessage";
+
+      // Call Gemini Service with events and recent messages as context
       final response = await _geminiService.generateContent(prompt);
+
       setState(() {
         _messages.add({'role': 'ai', 'content': response});
       });
+
+      final aiMsg = AssistantMessage(
+        date: dateString,
+        role: 'ai',
+        content: response,
+        timestamp: DateTime.now().toIso8601String(),
+      );
+      await DatabaseHelper.instance.insertAssistantMessage(aiMsg);
     } catch (e) {
+      final errorText = 'Error: $e';
       setState(() {
-        _messages.add({'role': 'ai', 'content': 'Error: $e'});
+        _messages.add({'role': 'ai', 'content': errorText});
       });
+      final aiErr = AssistantMessage(
+        date: dateString,
+        role: 'ai',
+        content: errorText,
+        timestamp: DateTime.now().toIso8601String(),
+      );
+      await DatabaseHelper.instance.insertAssistantMessage(aiErr);
     } finally {
       setState(() {
         _isLoading = false;
@@ -118,10 +170,11 @@ class _AssistantPageState extends State<AssistantPage> {
                   onPressed: _pickDate,
                 ),
                 TextButton(
-                  onPressed: () {
+                  onPressed: () async {
                     setState(() {
                       _selectedDate = DateTime.now();
                     });
+                    await _loadMessagesForSelectedDate();
                   },
                   child: const Text('Today'),
                 ),

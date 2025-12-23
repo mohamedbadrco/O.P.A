@@ -66,7 +66,9 @@ class Event {
       'endTime': endTime,
       'location': location,
       'description': description,
-      DatabaseHelper.columnScheduleAlarm: scheduleAlarm ? 1 : 0, // Store bool as int
+      DatabaseHelper.columnScheduleAlarm: scheduleAlarm
+          ? 1
+          : 0, // Store bool as int
     };
   }
 
@@ -79,7 +81,9 @@ class Event {
       endTime: map['endTime'] as String,
       location: map['location'] as String? ?? '',
       description: map['description'] as String? ?? '',
-      scheduleAlarm: (map[DatabaseHelper.columnScheduleAlarm] as int? ?? 1) == 1, // Read int as bool, default to true if null
+      scheduleAlarm:
+          (map[DatabaseHelper.columnScheduleAlarm] as int? ?? 1) ==
+          1, // Read int as bool, default to true if null
     );
   }
 }
@@ -136,17 +140,56 @@ class AiSummary {
   }
 }
 
+// Model for storing assistant conversation messages per date
+class AssistantMessage {
+  final int? id;
+  final String date; // YYYY-MM-DD
+  final String role; // 'user' or 'ai'
+  final String content;
+  final String timestamp; // ISO8601
+
+  AssistantMessage({
+    this.id,
+    required this.date,
+    required this.role,
+    required this.content,
+    required this.timestamp,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'date': date,
+      'role': role,
+      'content': content,
+      'timestamp': timestamp,
+    };
+  }
+
+  factory AssistantMessage.fromMap(Map<String, dynamic> map) {
+    return AssistantMessage(
+      id: map['id'] as int?,
+      date: map['date'] as String,
+      role: map['role'] as String,
+      content: map['content'] as String,
+      timestamp: map['timestamp'] as String,
+    );
+  }
+}
+
 class DatabaseHelper {
   static const _databaseName = "CalendarApp.db";
-  static const _databaseVersion = 4; // Incremented version
+  static const _databaseVersion =
+      5; // Incremented version - added assistant_messages table
 
   static const tableEvents = 'events';
   static const tableAttachments = 'attachments';
   static const tableAiSummaries = 'ai_summaries';
+  static const tableAssistantMessages = 'assistant_messages';
 
   static const columnId = 'id';
   static const columnTitle = 'title';
-  static const columnDate = 'date'; 
+  static const columnDate = 'date';
   static const columnStartTime = 'startTime';
   static const columnEndTime = 'endTime';
   static const columnLocation = 'location';
@@ -159,6 +202,11 @@ class DatabaseHelper {
   static const columnSummary = 'summary';
   static const columnLastUpdated = 'lastUpdated';
   static const columnEventsHash = 'eventsHash';
+
+  // Columns for assistant_messages table
+  static const columnRole = 'role';
+  static const columnContent = 'content';
+  static const columnTimestamp = 'timestamp';
 
   DatabaseHelper._privateConstructor();
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
@@ -203,6 +251,17 @@ class DatabaseHelper {
       )
       ''');
     await _createAiSummariesTable(db);
+
+    // Table for storing assistant conversation messages per date
+    await db.execute('''
+      CREATE TABLE $tableAssistantMessages (
+        $columnId INTEGER PRIMARY KEY AUTOINCREMENT,
+        $columnDate TEXT NOT NULL,
+        $columnRole TEXT NOT NULL,
+        $columnContent TEXT NOT NULL,
+        $columnTimestamp TEXT NOT NULL
+      )
+      ''');
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -220,7 +279,20 @@ class DatabaseHelper {
       await _createAiSummariesTable(db);
     }
     if (oldVersion < 4) {
-      await db.execute('ALTER TABLE $tableEvents ADD COLUMN $columnScheduleAlarm INTEGER NOT NULL DEFAULT 1');
+      await db.execute(
+        'ALTER TABLE $tableEvents ADD COLUMN $columnScheduleAlarm INTEGER NOT NULL DEFAULT 1',
+      );
+    }
+    if (oldVersion < 5) {
+      await db.execute('''
+        CREATE TABLE $tableAssistantMessages (
+          $columnId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $columnDate TEXT NOT NULL,
+          $columnRole TEXT NOT NULL,
+          $columnContent TEXT NOT NULL,
+          $columnTimestamp TEXT NOT NULL
+        )
+        ''');
     }
   }
 
@@ -337,6 +409,44 @@ class DatabaseHelper {
       return AiSummary.fromMap(maps.first);
     }
     return null;
+  }
+
+  // Methods for assistant messages
+  Future<int> insertAssistantMessage(AssistantMessage message) async {
+    Database db = await instance.database;
+    return await db.insert(tableAssistantMessages, message.toMap());
+  }
+
+  Future<List<AssistantMessage>> getMessagesForDate(String dateString) async {
+    Database db = await instance.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      tableAssistantMessages,
+      where: '$columnDate = ?',
+      whereArgs: [dateString],
+      orderBy: '$columnTimestamp ASC',
+    );
+    return List.generate(maps.length, (i) => AssistantMessage.fromMap(maps[i]));
+  }
+
+  // Get the last N messages for a date in chronological order
+  Future<List<AssistantMessage>> getLastMessagesForDate(
+    String dateString,
+    int limit,
+  ) async {
+    Database db = await instance.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      tableAssistantMessages,
+      where: '$columnDate = ?',
+      whereArgs: [dateString],
+      orderBy: '$columnTimestamp DESC',
+      limit: limit,
+    );
+    // maps currently newest-first, reverse to chronological
+    final reversed = maps.reversed.toList();
+    return List.generate(
+      reversed.length,
+      (i) => AssistantMessage.fromMap(reversed[i]),
+    );
   }
 
   // Helper to generate a hash for a list of events
