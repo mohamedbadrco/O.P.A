@@ -91,9 +91,7 @@ Please follow existing code style and add tests for new behavior.
 
 ## 📸 Screenshots
 
-Add screenshots to `assets/` and reference them here to showcase Day/Week/Month views and the assistant UI.
 
-> Example:
 > ![Screenshot](assets/screenshot.png)
 
 ---
