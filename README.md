@@ -109,6 +109,6 @@ This project is licensed under the Creative Commons Attribution-NonCommercial 4.
 ## ✉️ Contact
 
 - Mohamed badr mo
-- Email: mohamedbadrco@gmail.com
+- Email: mohmedbadrco@gmail.com
 - GitHub: [@mohamedbadrco](https://github.com/mohamedbadrco)
 
