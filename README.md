@@ -94,8 +94,7 @@ Please follow existing code style and add tests for new behavior.
 <p align="center">
   <img src="assets/1000042791.jpg" alt="Screenshot 1" width="120" style="margin:8px"/>
   <img src="assets/1000042792.jpg" alt="Screenshot 2" width="120" style="margin:8px"/>
-  <img src="assets/1000042793.jpg" alt="Screenshot 3" width="120" style="margin:8px"/>
-  <br/>
+  <img src="assets/1000042793.jpg" alt="Screenshot 3" width="120" style="margin:8px">
   <img src="assets/1000042794.jpg" alt="Screenshot 4" width="120" style="margin:8px"/>
   <img src="assets/1000042795.jpg" alt="Screenshot 5" width="120" style="margin:8px"/>
 </p>
