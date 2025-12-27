@@ -45,6 +45,12 @@ class _MonthPageContentState extends State<MonthPageContent> {
   // Whether the divider is actively being dragged (used to animate handle)
   bool _isDraggingDivider = false;
 
+  // Track vertical drag total (pixels) to decide swipe direction without changing size continuously
+  double _verticalDragTotalDy = 0.0;
+
+  // Fixed snap options (descending order)
+  static const List<double> _snapOptions = [1.0, 0.5, 0.1];
+
   Widget _buildSelectedDayEventSummary(BuildContext context) {
     final theme = Theme.of(context);
 
@@ -399,22 +405,42 @@ class _MonthPageContentState extends State<MonthPageContent> {
 
         return GestureDetector(
           behavior: HitTestBehavior.translucent,
-          // Drag anywhere to resize: upward drag makes the summary (bottom) larger
+          // Instead of continuously resizing during drag, accumulate dy and step to the next size on drag end
           onVerticalDragUpdate: (details) {
-            _setTopFraction(_topFraction + details.delta.dy / totalHeight);
+            _verticalDragTotalDy += details.delta.dy;
           },
           onVerticalDragEnd: (details) {
             final vy = details.velocity.pixelsPerSecond.dy;
-            if (vy < -700) {
-              // fast upward swipe -> expand summary (minimize top)
-              _setTopFraction(0.2);
-            } else if (vy > 700) {
-              // fast downward swipe -> expand month (maximize top)
-              _setTopFraction(1.0);
+            final bool isUp;
+            if (vy.abs() > 700) {
+              isUp = vy < 0; // upward fling
             } else {
-              // snap to nearest of the three fixed ratios
-              _setTopFraction(_snapToClosest(_topFraction));
+              // small drags use accumulated delta (negative = upward)
+              isUp = _verticalDragTotalDy < -30;
             }
+
+            // find closest option index
+            int currentIndex = 0;
+            double bestDiff = double.infinity;
+            for (int i = 0; i < _snapOptions.length; i++) {
+              final d = (_topFraction - _snapOptions[i]).abs();
+              if (d < bestDiff) {
+                bestDiff = d;
+                currentIndex = i;
+              }
+            }
+
+            int newIndex = currentIndex;
+            if (isUp) {
+              // move to next smaller fraction (increase summary)
+              newIndex = (currentIndex + 1).clamp(0, _snapOptions.length - 1);
+            } else {
+              // move to next larger fraction (increase month)
+              newIndex = (currentIndex - 1).clamp(0, _snapOptions.length - 1);
+            }
+
+            _setTopFraction(_snapOptions[newIndex]);
+            _verticalDragTotalDy = 0.0;
           },
           child: Column(
             children: [
@@ -548,24 +574,54 @@ class _MonthPageContentState extends State<MonthPageContent> {
                   setState(() {
                     _isDraggingDivider = true;
                   });
+                  _verticalDragTotalDy = 0.0;
                 },
                 onVerticalDragUpdate: (details) {
-                  // keep consistent behavior when dragging the handle
-                  _setTopFraction(
-                    _topFraction + details.delta.dy / totalHeight,
-                  );
+                  // Accumulate drag but do not continuously resize
+                  _verticalDragTotalDy += details.delta.dy;
                 },
-                onVerticalDragEnd: (_) {
+                onVerticalDragEnd: (details) {
                   setState(() {
                     _isDraggingDivider = false;
                   });
-                  // Snap to closest after user finishes dragging the handle
-                  _setTopFraction(_snapToClosest(_topFraction));
+
+                  final vy = details.velocity.pixelsPerSecond.dy;
+                  final bool isUp = vy.abs() > 700
+                      ? (vy < 0)
+                      : (_verticalDragTotalDy < -30);
+
+                  // find closest option index
+                  int currentIndex = 0;
+                  double bestDiff = double.infinity;
+                  for (int i = 0; i < _snapOptions.length; i++) {
+                    final d = (_topFraction - _snapOptions[i]).abs();
+                    if (d < bestDiff) {
+                      bestDiff = d;
+                      currentIndex = i;
+                    }
+                  }
+
+                  int newIndex = currentIndex;
+                  if (isUp) {
+                    newIndex = (currentIndex + 1).clamp(
+                      0,
+                      _snapOptions.length - 1,
+                    );
+                  } else {
+                    newIndex = (currentIndex - 1).clamp(
+                      0,
+                      _snapOptions.length - 1,
+                    );
+                  }
+
+                  _setTopFraction(_snapOptions[newIndex]);
+                  _verticalDragTotalDy = 0.0;
                 },
                 onVerticalDragCancel: () {
                   setState(() {
                     _isDraggingDivider = false;
                   });
+                  _verticalDragTotalDy = 0.0;
                   _setTopFraction(_snapToClosest(_topFraction));
                 },
                 onDoubleTap: () => _setTopFraction(0.5),
