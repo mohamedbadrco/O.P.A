@@ -132,17 +132,16 @@ class _MonthPageContentState extends State<MonthPageContent> {
 
   void _setTopFraction(double fraction) {
     setState(() {
-      // Allow the special 1.0 (full month), 0.5 (split), and 0.2 (small month / large summary)
+      // Allow the special 1.0 (full month), 0.5 (split), and 0.1 (small month / large summary)
       _topFraction = fraction.clamp(0.0, 1.0);
     });
   }
 
   double _snapToClosest(double fraction) {
-    // New fixed ratios: full month (1.0), split (0.5), small month (0.2)
-    const List<double> options = [1.0, 0.5, 0.2];
-    double best = options[0];
+    // Use the shared snap options to avoid duplication
+    double best = _snapOptions[0];
     double bestDiff = (fraction - best).abs();
-    for (final f in options) {
+    for (final f in _snapOptions) {
       final d = (fraction - f).abs();
       if (d < bestDiff) {
         best = f;
@@ -397,11 +396,36 @@ class _MonthPageContentState extends State<MonthPageContent> {
 
         final numRows = ((weekdayOffset + daysInMonth) <= 35) ? 5 : 6;
 
-        double topHeight = (_topFraction * totalHeight).clamp(
-          minTopHeight,
-          totalHeight - minBottomHeight - dividerHeight,
-        );
-        double bottomHeight = totalHeight - topHeight - dividerHeight;
+        // If we're in the small-month state, show a single-week bar with the same day box height
+        // as in the 50/50 split. Compute that day height and use it for topHeight.
+        final double dayHeightAtSplit = (0.5 * totalHeight) / numRows;
+
+        // Hide divider when in full-month mode
+        final double dividerEffective = (_topFraction >= 0.999)
+            ? 0.0
+            : dividerHeight;
+
+        double topHeight;
+        if (_topFraction <= 0.11) {
+          // Small-month: set top height to the day box height used in 50/50 split
+          topHeight = dayHeightAtSplit;
+          // ensure it fits on screen (leave room for minimal bottom)
+          topHeight = topHeight.clamp(
+            0.0,
+            totalHeight - minBottomHeight - dividerEffective,
+          );
+        } else if (_topFraction >= 0.999) {
+          // Full-month: occupy available height (hide bottom)
+          topHeight = totalHeight;
+        } else {
+          topHeight = (_topFraction * totalHeight).clamp(
+            minTopHeight,
+            totalHeight - minBottomHeight - dividerEffective,
+          );
+        }
+
+        double bottomHeight = (totalHeight - topHeight - dividerEffective)
+            .clamp(0.0, totalHeight);
 
         return GestureDetector(
           behavior: HitTestBehavior.translucent,
@@ -454,8 +478,8 @@ class _MonthPageContentState extends State<MonthPageContent> {
                     builder: (context, gridConstraints) {
                       final totalWidth = gridConstraints.maxWidth;
 
-                      // If we're in the small-month (20%) state, show just one week as a horizontal row
-                      final bool showWeekRow = _topFraction <= 0.21;
+                      // If we're in the small-month state, show just one week as a horizontal row
+                      final bool showWeekRow = _topFraction <= 0.11;
                       if (showWeekRow) {
                         final DateTime reference =
                             widget.selectedDate ?? widget.today;
@@ -567,101 +591,103 @@ class _MonthPageContentState extends State<MonthPageContent> {
                 ),
               ),
 
-              // Divider / Drag handle
-              GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onVerticalDragStart: (_) {
-                  setState(() {
-                    _isDraggingDivider = true;
-                  });
-                  _verticalDragTotalDy = 0.0;
-                },
-                onVerticalDragUpdate: (details) {
-                  // Accumulate drag but do not continuously resize
-                  _verticalDragTotalDy += details.delta.dy;
-                },
-                onVerticalDragEnd: (details) {
-                  setState(() {
-                    _isDraggingDivider = false;
-                  });
+              if (dividerEffective > 0) ...[
+                // Divider / Drag handle
+                GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onVerticalDragStart: (_) {
+                    setState(() {
+                      _isDraggingDivider = true;
+                    });
+                    _verticalDragTotalDy = 0.0;
+                  },
+                  onVerticalDragUpdate: (details) {
+                    // Accumulate drag but do not continuously resize
+                    _verticalDragTotalDy += details.delta.dy;
+                  },
+                  onVerticalDragEnd: (details) {
+                    setState(() {
+                      _isDraggingDivider = false;
+                    });
 
-                  final vy = details.velocity.pixelsPerSecond.dy;
-                  final bool isUp = vy.abs() > 700
-                      ? (vy < 0)
-                      : (_verticalDragTotalDy < -30);
+                    final vy = details.velocity.pixelsPerSecond.dy;
+                    final bool isUp = vy.abs() > 700
+                        ? (vy < 0)
+                        : (_verticalDragTotalDy < -30);
 
-                  // find closest option index
-                  int currentIndex = 0;
-                  double bestDiff = double.infinity;
-                  for (int i = 0; i < _snapOptions.length; i++) {
-                    final d = (_topFraction - _snapOptions[i]).abs();
-                    if (d < bestDiff) {
-                      bestDiff = d;
-                      currentIndex = i;
+                    // find closest option index
+                    int currentIndex = 0;
+                    double bestDiff = double.infinity;
+                    for (int i = 0; i < _snapOptions.length; i++) {
+                      final d = (_topFraction - _snapOptions[i]).abs();
+                      if (d < bestDiff) {
+                        bestDiff = d;
+                        currentIndex = i;
+                      }
                     }
-                  }
 
-                  int newIndex = currentIndex;
-                  if (isUp) {
-                    newIndex = (currentIndex + 1).clamp(
-                      0,
-                      _snapOptions.length - 1,
-                    );
-                  } else {
-                    newIndex = (currentIndex - 1).clamp(
-                      0,
-                      _snapOptions.length - 1,
-                    );
-                  }
+                    int newIndex = currentIndex;
+                    if (isUp) {
+                      newIndex = (currentIndex + 1).clamp(
+                        0,
+                        _snapOptions.length - 1,
+                      );
+                    } else {
+                      newIndex = (currentIndex - 1).clamp(
+                        0,
+                        _snapOptions.length - 1,
+                      );
+                    }
 
-                  _setTopFraction(_snapOptions[newIndex]);
-                  _verticalDragTotalDy = 0.0;
-                },
-                onVerticalDragCancel: () {
-                  setState(() {
-                    _isDraggingDivider = false;
-                  });
-                  _verticalDragTotalDy = 0.0;
-                  _setTopFraction(_snapToClosest(_topFraction));
-                },
-                onDoubleTap: () => _setTopFraction(0.5),
-                child: Container(
-                  height: dividerHeight,
-                  color: Colors.transparent,
-                  alignment: Alignment.center,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeInOut,
-                    width: _isDraggingDivider ? 56 : 48,
-                    height: _isDraggingDivider ? 8 : 6,
-                    decoration: BoxDecoration(
-                      color: theme.dividerColor,
-                      borderRadius: BorderRadius.circular(4),
-                      boxShadow: _isDraggingDivider
-                          ? [
-                              BoxShadow(
-                                color: theme.colorScheme.onBackground
-                                    .withOpacity(0.12),
-                                blurRadius: 6,
-                                offset: Offset(0, 2),
-                              ),
-                            ]
-                          : null,
+                    _setTopFraction(_snapOptions[newIndex]);
+                    _verticalDragTotalDy = 0.0;
+                  },
+                  onVerticalDragCancel: () {
+                    setState(() {
+                      _isDraggingDivider = false;
+                    });
+                    _verticalDragTotalDy = 0.0;
+                    _setTopFraction(_snapToClosest(_topFraction));
+                  },
+                  onDoubleTap: () => _setTopFraction(0.5),
+                  child: Container(
+                    height: dividerHeight,
+                    color: Colors.transparent,
+                    alignment: Alignment.center,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeInOut,
+                      width: _isDraggingDivider ? 56 : 48,
+                      height: _isDraggingDivider ? 8 : 6,
+                      decoration: BoxDecoration(
+                        color: theme.dividerColor,
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: _isDraggingDivider
+                            ? [
+                                BoxShadow(
+                                  color: theme.colorScheme.onBackground
+                                      .withOpacity(0.12),
+                                  blurRadius: 6,
+                                  offset: Offset(0, 2),
+                                ),
+                              ]
+                            : null,
+                      ),
                     ),
                   ),
                 ),
-              ),
 
-              // Bottom summary area
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOutCubic,
-                height: bottomHeight,
-                child: GestureDetector(
-                  onDoubleTap: () => _setTopFraction(0.2),
-                  child: _buildSelectedDayEventSummary(context),
+                // Bottom summary area
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOutCubic,
+                  height: bottomHeight,
+                  child: GestureDetector(
+                    onDoubleTap: () => _setTopFraction(0.2),
+                    child: _buildSelectedDayEventSummary(context),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         );
