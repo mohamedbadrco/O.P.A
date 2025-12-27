@@ -333,37 +333,14 @@ class WeekPageContent extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                icon: Icon(
-                  Icons.chevron_left,
-                  color: theme.brightness == Brightness.dark
-                      ? theme.colorScheme.onBackground
-                      : theme.iconTheme.color,
-                ),
-                onPressed: onGoToPreviousWeek,
+          child: Center(
+            child: Text(
+              weekRangeText,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
               ),
-              Expanded(
-                child: Text(
-                  weekRangeText,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.chevron_right,
-                  color: theme.brightness == Brightness.dark
-                      ? theme.colorScheme.onBackground
-                      : theme.iconTheme.color,
-                ),
-                onPressed: onGoToNextWeek,
-              ),
-            ],
+            ),
           ),
         ),
         Row(
