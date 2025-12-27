@@ -190,13 +190,15 @@ class DayScheduleView extends StatelessWidget {
                 ),
               );
             },
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeInOut,
               height: eventHeight,
               padding: const EdgeInsets.all(6),
               margin: const EdgeInsets.only(bottom: 2),
               decoration: BoxDecoration(
                 color: eventBgColor.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 event.title,
@@ -424,8 +426,8 @@ class _CalendarAppState extends State<CalendarApp> {
 
     final darkColorScheme = ColorScheme(
       brightness: Brightness.dark,
-      background: const Color(0xFF1c1c1e),
-      surface: const Color(0xFF1c1c1e),
+      background: const Color.fromARGB(255, 0, 0, 0),
+      surface: const Color.fromARGB(255, 0, 0, 0),
       onBackground: const Color(0xFFebebf0),
       onSurface: const Color(0xFFebebf0),
       onPrimary: const Color(0xFF30D158),
@@ -438,7 +440,7 @@ class _CalendarAppState extends State<CalendarApp> {
       onPrimaryContainer: const Color(0xFFBEF0C4),
       secondaryContainer: const Color(0xFF2B5C34),
       onSecondaryContainer: const Color(0xFFE0FFE7),
-      outlineVariant: Colors.grey.shade700,
+      outlineVariant: const Color.fromARGB(255, 255, 255, 255),
     );
 
     return MaterialApp(
@@ -447,6 +449,23 @@ class _CalendarAppState extends State<CalendarApp> {
         colorScheme: lightColorScheme,
         useMaterial3: true,
         fontFamily: GoogleFonts.inter().fontFamily,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+          },
+        ),
+        listTileTheme: ListTileThemeData(
+          dense: true,
+          minLeadingWidth: 20,
+          horizontalTitleGap: 8,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        ),
+        splashFactory: InkRipple.splashFactory,
         appBarTheme: AppBarTheme(
           elevation: 0,
           backgroundColor: lightColorScheme.background,
@@ -495,6 +514,23 @@ class _CalendarAppState extends State<CalendarApp> {
         colorScheme: darkColorScheme,
         useMaterial3: true,
         fontFamily: GoogleFonts.inter().fontFamily,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+            TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+          },
+        ),
+        listTileTheme: ListTileThemeData(
+          dense: true,
+          minLeadingWidth: 20,
+          horizontalTitleGap: 8,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        ),
+        splashFactory: InkRipple.splashFactory,
         scaffoldBackgroundColor: darkColorScheme.background,
         appBarTheme: AppBarTheme(
           elevation: 0,
@@ -1387,7 +1423,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           _addEvent(_selectedDate ?? _today);
         },
         tooltip: 'Add Event',
-        child: Icon(Icons.add, color: theme.colorScheme.onPrimary),
+        child: Icon(Icons.add, color: theme.colorScheme.background),
         backgroundColor: theme.colorScheme.outlineVariant,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(
