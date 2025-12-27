@@ -2,6 +2,72 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import './database_helper.dart'; // For Event type
 
+// A simple horizontal dotted line painter used in the week schedule.
+class DottedLine extends StatelessWidget {
+  final Color color;
+  final double strokeWidth;
+  final double dashWidth;
+  final double dashSpace;
+
+  const DottedLine({
+    Key? key,
+    required this.color,
+    this.strokeWidth = 1.0,
+    this.dashWidth = 4.0,
+    this.dashSpace = 4.0,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(double.infinity, strokeWidth),
+      painter: _DottedLinePainter(
+        color: color,
+        strokeWidth: strokeWidth,
+        dashWidth: dashWidth,
+        dashSpace: dashSpace,
+      ),
+    );
+  }
+}
+
+class _DottedLinePainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double dashWidth;
+  final double dashSpace;
+
+  _DottedLinePainter({
+    required this.color,
+    required this.strokeWidth,
+    required this.dashWidth,
+    required this.dashSpace,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    double startX = 0;
+    final centerY = size.height / 2;
+    while (startX < size.width) {
+      final endX = (startX + dashWidth).clamp(0.0, size.width);
+      canvas.drawLine(Offset(startX, centerY), Offset(endX, centerY), paint);
+      startX += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DottedLinePainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.dashWidth != dashWidth ||
+        oldDelegate.dashSpace != dashSpace;
+  }
+}
+
 class WeekPageContent extends StatelessWidget {
   final DateTime weekStart;
   final DateTime today;
@@ -72,16 +138,44 @@ class WeekPageContent extends StatelessWidget {
     final theme = Theme.of(context);
     List<Widget> stackChildren = [];
 
-    // Add hour dividers
-    for (int hour = minHour; hour <= maxHour; hour++) {
-      stackChildren.add(
-        Positioned(
-          top: (hour - minHour) * hourHeight,
-          left: 0,
-          width: columnWidth,
-          child: Divider(height: 1, thickness: 0.5, color: theme.dividerColor),
-        ),
-      );
+    // Add hour and half-hour dividers (solid at full hours, dotted at half-hours)
+    final _minHourMinutes = minHour * 60;
+    final _maxHourMinutes = maxHour * 60;
+    for (
+      int minutes = _minHourMinutes;
+      minutes <= _maxHourMinutes;
+      minutes += 30
+    ) {
+      final top = ((minutes - _minHourMinutes) / 60.0) * hourHeight;
+      if (minutes % 60 == 0) {
+        // full hour - solid line
+        stackChildren.add(
+          Positioned(
+            top: top,
+            left: 0,
+            width: columnWidth,
+            child: Container(height: 1, color: theme.dividerColor),
+          ),
+        );
+      } else {
+        // half hour - dotted line
+        stackChildren.add(
+          Positioned(
+            top: top,
+            left: 0,
+            width: columnWidth,
+            child: SizedBox(
+              height: 1.0,
+              child: DottedLine(
+                color: theme.dividerColor,
+                strokeWidth: 0.5,
+                dashWidth: 3.0,
+                dashSpace: 3.0,
+              ),
+            ),
+          ),
+        );
+      }
     }
 
     // Add events
@@ -157,29 +251,36 @@ class WeekPageContent extends StatelessWidget {
         if (topOffset >= 0 && topOffset <= totalScheduleHeight) {
           stackChildren.add(
             Positioned(
-              top: topOffset - (indicatorHeight / 2), // Center the indicator text vertically
+              top:
+                  topOffset -
+                  (indicatorHeight / 2), // Center the indicator text vertically
               left: 0,
               width: columnWidth,
               height: indicatorHeight,
               child: Stack(
-                clipBehavior: Clip.none, // Allow text to overflow slightly if needed
+                clipBehavior:
+                    Clip.none, // Allow text to overflow slightly if needed
                 children: [
                   Positioned(
-                    top: indicatorHeight / 2 - 0.5, // Center the line in the middle of the allocated height
+                    top:
+                        indicatorHeight / 2 -
+                        0.5, // Center the line in the middle of the allocated height
                     left: 0,
                     right: 0,
-                    child: Container(
-                      height: 1.0,
-                      color: Colors.red,
-                    ),
+                    child: Container(height: 1.0, color: Colors.red),
                   ),
                   Positioned(
                     top: 0,
                     right: 2, // Small padding from the right edge
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 3.0, vertical: 1.0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 3.0,
+                        vertical: 1.0,
+                      ),
                       decoration: BoxDecoration(
-                        color: theme.canvasColor.withOpacity(0.75), // Semi-transparent background
+                        color: theme.canvasColor.withOpacity(
+                          0.75,
+                        ), // Semi-transparent background
                         borderRadius: BorderRadius.circular(2.0),
                       ),
                       child: Text(
