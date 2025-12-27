@@ -15,6 +15,8 @@ class AppDrawer extends StatelessWidget {
   final int maxHour;
   final double timeLabelWidth;
   final Function(Event)? onEventTapped;
+  final Function(DateTime)? onOpenDayView;
+  final VoidCallback? onCloseDayView;
 
   const AppDrawer({
     super.key,
@@ -30,7 +32,8 @@ class AppDrawer extends StatelessWidget {
     this.maxHour = 23,
     this.timeLabelWidth = 50.0,
     this.onEventTapped,
-    required void Function(DateTime date) onOpenDayView,
+    this.onOpenDayView,
+    this.onCloseDayView,
   });
 
   @override
@@ -77,9 +80,12 @@ class AppDrawer extends StatelessWidget {
               selected: currentRoute == 'calendar',
               onTap: () {
                 Navigator.pop(context);
-                if (currentRoute != 'calendar') {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                }
+                // Ensure root is visible
+                Navigator.of(context).popUntil((route) => route.isFirst);
+                // Close Day view if open
+                onCloseDayView?.call();
+                // If we happen to be in week view, switch to month
+                if (isWeekView) onViewSwitch?.call();
               },
             ),
             ListTile(
@@ -95,86 +101,103 @@ class AppDrawer extends StatelessWidget {
               onTap: () {
                 Navigator.pop(context);
                 if (currentRoute != 'assistant') {
+                  // Ensure the calendar (root) is visible before pushing assistant so navigation is consistent
+                  Navigator.of(context).popUntil((route) => route.isFirst);
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) => const AssistantPage(),
+                      builder: (context) => AssistantPage(
+                        initialSelectedDate: selectedDate,
+                        onOpenDayView: onOpenDayView,
+                        onViewSwitch: onViewSwitch,
+                        isWeekView: isWeekView,
+                        onCloseDayView: onCloseDayView,
+                        onToggleTheme: onToggleTheme,
+                        themeMode: themeMode,
+                      ),
                     ),
                   );
                 }
               },
             ),
-            if (currentRoute == 'calendar' || currentRoute == 'day') ...[
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.calendar_month_outlined),
-                title: Text(
-                  'Month',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.calendar_today),
+              title: Text(
+                'Day',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // If already on calendar:
-                  if (currentRoute == 'calendar') {
-                    // If currently in week view, switch to month.
-                    if (isWeekView) {
-                      onViewSwitch?.call();
-                    }
-                    // If already in month view, do nothing (stay on page).
-                  } else {
-                    // Not on calendar: go back to root (calendar).
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  }
-                },
               ),
-              ListTile(
-                leading: const Icon(Icons.view_week_outlined),
-                title: Text(
-                  'Week',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // If already on calendar:
-                  if (currentRoute == 'calendar') {
-                    // If currently in month view, switch to week.
-                    if (!isWeekView) {
-                      onViewSwitch?.call();
-                    }
-                    // If already in week view, do nothing.
-                  } else {
-                    // Not on calendar: go to calendar (root) and request week view.
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                    onViewSwitch?.call();
-                  }
-                },
-              ),
+              onTap: () {
+                Navigator.pop(context);
+                final DateTime dayToOpen = selectedDate ?? DateTime.now();
+                // Ensure root is visible and close any Day view, then request embedded Day view
+                Navigator.of(context).popUntil((route) => route.isFirst);
+                onCloseDayView?.call();
+                onOpenDayView?.call(dayToOpen);
+              },
+            ),
 
-              if (onToggleTheme != null && themeMode != null)
-                ListTile(
-                  leading: Icon(
-                    themeMode == ThemeMode.light
-                        ? Icons.dark_mode_outlined
-                        : Icons.light_mode_outlined,
-                  ),
-                  title: Text(
-                    themeMode == ThemeMode.light ? 'Dark Mode' : 'Light Mode',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    onToggleTheme!();
-                  },
+            ListTile(
+              leading: const Icon(Icons.calendar_month_outlined),
+              title: Text(
+                'Month',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
-            ],
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                // Ensure root and close day view
+                Navigator.of(context).popUntil((route) => route.isFirst);
+                onCloseDayView?.call();
+                // If currently in week view, switch to month.
+                if (isWeekView) {
+                  onViewSwitch?.call();
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.view_week_outlined),
+              title: Text(
+                'Week',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                // Ensure root and close day view
+                Navigator.of(context).popUntil((route) => route.isFirst);
+                onCloseDayView?.call();
+                // If currently in month view, switch to week.
+                if (!isWeekView) {
+                  onViewSwitch?.call();
+                }
+              },
+            ),
+            if (onToggleTheme != null && themeMode != null)
+              ListTile(
+                leading: Icon(
+                  themeMode == ThemeMode.light
+                      ? Icons.dark_mode_outlined
+                      : Icons.light_mode_outlined,
+                ),
+                title: Text(
+                  themeMode == ThemeMode.light ? 'Dark Mode' : 'Light Mode',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  onToggleTheme!();
+                },
+              ),
           ],
         ),
       ),

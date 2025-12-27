@@ -11,6 +11,7 @@ import './notification_service.dart'; // Import NotificationService
 import 'package:timezone/data/latest.dart' as tzdata;
 import './weekend_days.dart'; // <-- Add this import
 import './app_drawer.dart'; // Import AppDrawer
+import './day_page.dart'; // Day page (DayPageContent / DayEventsScreen)
 import 'dart:math' as math;
 
 // import \'package:flutter_dotenv/flutter_dotenv.dart\'; // Commented out, ensure it\'s handled if needed
@@ -309,75 +310,6 @@ class DayScheduleView extends StatelessWidget {
   double _calculateEventHeight(int durationInMinutes) {
     final calculatedHeight = (durationInMinutes / 60.0) * hourHeight;
     return calculatedHeight < 20.0 ? 20.0 : calculatedHeight;
-  }
-}
-
-class DayEventsScreen extends StatefulWidget {
-  final DateTime date;
-  final VoidCallback onMasterListShouldUpdate;
-
-  const DayEventsScreen({
-    super.key,
-    required this.date,
-    required this.onMasterListShouldUpdate,
-  });
-
-  @override
-  State<DayEventsScreen> createState() => _DayEventsScreenState();
-}
-
-class _DayEventsScreenState extends State<DayEventsScreen> {
-  List<Event> _dayEvents = [];
-  final dbHelper = DatabaseHelper.instance;
-  final double _hourHeight = 60.0;
-  final int _minHour = 0;
-  final int _maxHour = 23;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDayEvents();
-  }
-
-  Future<void> _loadDayEvents() async {
-    final events = await dbHelper.getEventsForDate(widget.date);
-    if (mounted) {
-      setState(() {
-        _dayEvents = events;
-      });
-    }
-  }
-
-  void _handleEventChangeFromDetails() {
-    _loadDayEvents();
-    widget.onMasterListShouldUpdate();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: theme.brightness == Brightness.dark
-                ? theme.colorScheme.onBackground
-                : theme.appBarTheme.foregroundColor,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(DateFormat('MMM d, yy').format(widget.date)),
-      ),
-      body: DayScheduleView(
-        date: widget.date,
-        events: _dayEvents,
-        hourHeight: _hourHeight,
-        TaminTime: TimeOfDay(hour: _minHour, minute: 0),
-        TamaxTime: TimeOfDay(hour: _maxHour, minute: 59),
-        onEventChanged: _handleEventChangeFromDetails,
-      ),
-    );
   }
 }
 
@@ -1140,17 +1072,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ),
         leading: Builder(
           builder: (context) {
-            // When embedded Day view is active hide the drawer and show a back button
-            if (_isDayView) {
-              return IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () {
-                  setState(() {
-                    _isDayView = false;
-                  });
-                },
-              );
-            }
             return IconButton(
               icon: const Icon(Icons.menu),
               onPressed: () {
@@ -1160,19 +1081,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           },
         ),
         actions: [
-          if (_isDayView)
-            IconButton(
-              tooltip: 'Close Day View',
-              icon: Icon(
-                Icons.calendar_month,
-                color: theme.colorScheme.primary,
-              ),
-              onPressed: () {
-                setState(() {
-                  _isDayView = false;
-                });
-              },
-            ),
+          // No back button for Day view; navigation happens via the drawer
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Container(
@@ -1206,17 +1115,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
         ],
       ),
-      // Hide the drawer while in embedded Day view
-      drawer: _isDayView
-          ? null
-          : AppDrawer(
-              currentRoute: 'calendar',
-              onViewSwitch: _toggleView,
-              isWeekView: _isWeekView,
-              onToggleTheme: widget.onToggleTheme,
-              themeMode: widget.themeMode,
-              onOpenDayView: _openDayView,
-            ),
+      // Always show the drawer. It will control navigation for Day/Month/Week
+      drawer: AppDrawer(
+        currentRoute: _isDayView ? 'day' : 'calendar',
+        onViewSwitch: _toggleView,
+        isWeekView: _isWeekView,
+        onToggleTheme: widget.onToggleTheme,
+        themeMode: widget.themeMode,
+        selectedDate: _selectedDate,
+        onOpenDayView: _openDayView,
+        onCloseDayView: () {
+          if (!mounted) return;
+          setState(() {
+            _isDayView = false;
+          });
+        },
+      ),
       body: Column(
         children: [
           // If Day view requested show the embedded DayScheduleView replacing Month/Week area
@@ -1229,13 +1143,33 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   final dayEvents = _events[dayKey] ?? [];
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: DayScheduleView(
+                    child: DayPageContent(
                       date: day,
                       events: dayEvents,
                       hourHeight: _hourHeight,
-                      TaminTime: TimeOfDay(hour: _minHour, minute: 0),
-                      TamaxTime: TimeOfDay(hour: _maxHour, minute: 59),
-                      onEventChanged: () async {
+                      minHour: _minHour,
+                      maxHour: _maxHour,
+                      timeLabelWidth: _timeLabelWidth,
+                      onEventTapped: (event) async {
+                        await _navigateToEventDetails(event);
+                        await _loadEventsFromDb();
+                        if (_selectedDate != null)
+                          _fetchAiDaySummary(_selectedDate!);
+                      },
+                      onGoToPreviousDay: () async {
+                        final prev = day.subtract(const Duration(days: 1));
+                        setState(() {
+                          _selectedDate = prev;
+                        });
+                        await _loadEventsFromDb();
+                        if (_selectedDate != null)
+                          _fetchAiDaySummary(_selectedDate!);
+                      },
+                      onGoToNextDay: () async {
+                        final next = day.add(const Duration(days: 1));
+                        setState(() {
+                          _selectedDate = next;
+                        });
                         await _loadEventsFromDb();
                         if (_selectedDate != null)
                           _fetchAiDaySummary(_selectedDate!);

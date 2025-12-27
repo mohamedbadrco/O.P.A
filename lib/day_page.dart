@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import './database_helper.dart'; // For Event type
+import 'event_details_page.dart';
 
 class DayPageContent extends StatelessWidget {
   final DateTime date;
@@ -206,71 +207,176 @@ class DayPageContent extends StatelessWidget {
     final theme = Theme.of(context);
     final totalHeight = (maxHour - minHour + 1) * hourHeight;
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: onGoToPreviousDay,
-              ),
-              Expanded(
-                child: Text(
-                  DateFormat.yMMMMEEEEd().format(date),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: onGoToNextDay,
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            child: SizedBox(
-              height: totalHeight,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: timeLabelWidth,
-                    height: totalHeight,
-                    child: _buildTimeLabels(context),
-                  ),
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return Container(
-                          height: totalHeight,
-                          decoration: BoxDecoration(
-                            border: Border(
-                              left: BorderSide(
-                                color: theme.dividerColor,
-                                width: 0.5,
-                              ),
-                            ),
-                          ),
-                          child: _buildScheduleStack(
-                            context,
-                            constraints.maxWidth,
-                          ),
-                        );
-                      },
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      // Horizontal swipe: positive velocity = swipe right (previous day), negative = swipe left (next day)
+      onHorizontalDragEnd: (details) {
+        final v = details.primaryVelocity ?? 0;
+        if (v > 300) {
+          onGoToPreviousDay();
+        } else if (v < -300) {
+          onGoToNextDay();
+        }
+      },
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    DateFormat.yMMMMEEEEd().format(date),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              child: SizedBox(
+                height: totalHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: timeLabelWidth,
+                      height: totalHeight,
+                      child: _buildTimeLabels(context),
+                    ),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return Container(
+                            height: totalHeight,
+                            decoration: BoxDecoration(
+                              border: Border(
+                                left: BorderSide(
+                                  color: theme.dividerColor,
+                                  width: 0.5,
+                                ),
+                              ),
+                            ),
+                            child: _buildScheduleStack(
+                              context,
+                              constraints.maxWidth,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class DayEventsScreen extends StatefulWidget {
+  final DateTime date;
+  final VoidCallback onMasterListShouldUpdate;
+
+  const DayEventsScreen({
+    super.key,
+    required this.date,
+    required this.onMasterListShouldUpdate,
+  });
+
+  @override
+  State<DayEventsScreen> createState() => _DayEventsScreenState();
+}
+
+class _DayEventsScreenState extends State<DayEventsScreen> {
+  List<Event> _dayEvents = [];
+  final dbHelper = DatabaseHelper.instance;
+  final double _hourHeight = 60.0;
+  final int _minHour = 0;
+  final int _maxHour = 23;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDayEvents();
+  }
+
+  Future<void> _loadDayEvents() async {
+    final events = await dbHelper.getEventsForDate(widget.date);
+    if (mounted) {
+      setState(() {
+        _dayEvents = events;
+      });
+    }
+  }
+
+  void _handleEventChangeFromDetails() {
+    _loadDayEvents();
+    widget.onMasterListShouldUpdate();
+  }
+
+  Future<void> _navigateToEventDetails(Event event) async {
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => EventDetailsPage(event: event)),
+    );
+    // After returning, reload events
+    _handleEventChangeFromDetails();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back,
+            color: theme.brightness == Brightness.dark
+                ? theme.colorScheme.onBackground
+                : theme.appBarTheme.foregroundColor,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-      ],
+        title: Text(DateFormat('MMM d, yy').format(widget.date)),
+      ),
+      body: DayPageContent(
+        date: widget.date,
+        events: _dayEvents,
+        hourHeight: _hourHeight,
+        minHour: _minHour,
+        maxHour: _maxHour,
+        timeLabelWidth: 50.0,
+        onEventTapped: (event) => _navigateToEventDetails(event),
+        onGoToPreviousDay: () async {
+          final prev = widget.date.subtract(const Duration(days: 1));
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => DayEventsScreen(
+                date: prev,
+                onMasterListShouldUpdate: widget.onMasterListShouldUpdate,
+              ),
+            ),
+          );
+        },
+        onGoToNextDay: () async {
+          final next = widget.date.add(const Duration(days: 1));
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => DayEventsScreen(
+                date: next,
+                onMasterListShouldUpdate: widget.onMasterListShouldUpdate,
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

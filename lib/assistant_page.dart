@@ -4,7 +4,24 @@ import 'app_drawer.dart';
 import './database_helper.dart';
 
 class AssistantPage extends StatefulWidget {
-  const AssistantPage({super.key});
+  final DateTime? initialSelectedDate;
+  final Function(DateTime)? onOpenDayView;
+  final VoidCallback? onViewSwitch;
+  final bool isWeekView;
+  final VoidCallback? onCloseDayView;
+  final VoidCallback? onToggleTheme;
+  final ThemeMode? themeMode;
+
+  const AssistantPage({
+    super.key,
+    this.initialSelectedDate,
+    this.onOpenDayView,
+    this.onViewSwitch,
+    this.isWeekView = false,
+    this.onCloseDayView,
+    this.onToggleTheme,
+    this.themeMode,
+  });
 
   @override
   State<AssistantPage> createState() => _AssistantPageState();
@@ -15,11 +32,12 @@ class _AssistantPageState extends State<AssistantPage> {
   final GeminiService _geminiService = GeminiService();
   final List<Map<String, String>> _messages = []; // 'user' or 'ai'
   bool _isLoading = false;
-  DateTime _selectedDate = DateTime.now();
+  late DateTime _selectedDate;
 
   @override
   void initState() {
     super.initState();
+    _selectedDate = widget.initialSelectedDate ?? DateTime.now();
     _loadMessagesForSelectedDate();
   }
 
@@ -148,7 +166,13 @@ class _AssistantPageState extends State<AssistantPage> {
       appBar: AppBar(title: const Text('Assistant')),
       drawer: AppDrawer(
         currentRoute: 'assistant',
-        onOpenDayView: (DateTime date) {},
+        selectedDate: _selectedDate,
+        onOpenDayView: widget.onOpenDayView,
+        onViewSwitch: widget.onViewSwitch,
+        isWeekView: widget.isWeekView,
+        onCloseDayView: widget.onCloseDayView,
+        onToggleTheme: widget.onToggleTheme,
+        themeMode: widget.themeMode,
       ),
       body: Column(
         children: [
