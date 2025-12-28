@@ -70,6 +70,23 @@ class DayPageContent extends StatelessWidget {
           child: Divider(height: 1, thickness: 0.5, color: theme.dividerColor),
         ),
       );
+
+      // Half-hour dotted dividers
+      if (hour < maxHour) {
+        children.add(
+          Positioned(
+            top: (hour - minHour + 0.5) * hourHeight,
+            left: 0,
+            width: columnWidth,
+            child: SizedBox(
+              height: 1,
+              child: CustomPaint(
+                painter: DottedLinePainter(color: theme.dividerColor),
+              ),
+            ),
+          ),
+        );
+      }
     }
 
     // Events
@@ -253,14 +270,6 @@ class DayPageContent extends StatelessWidget {
                         builder: (context, constraints) {
                           return Container(
                             height: totalHeight,
-                            decoration: BoxDecoration(
-                              border: Border(
-                                left: BorderSide(
-                                  color: theme.dividerColor,
-                                  width: 0.5,
-                                ),
-                              ),
-                            ),
                             child: _buildScheduleStack(
                               context,
                               constraints.maxWidth,
@@ -277,6 +286,37 @@ class DayPageContent extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class DottedLinePainter extends CustomPainter {
+  final Color color;
+  final double dotRadius;
+  final double spacing;
+
+  DottedLinePainter({
+    required this.color,
+    this.dotRadius = 0.9,
+    this.spacing = 6.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    double x = 0;
+    while (x < size.width) {
+      canvas.drawCircle(Offset(x, size.height / 2), dotRadius, paint);
+      x += spacing;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant DottedLinePainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.dotRadius != dotRadius ||
+        oldDelegate.spacing != spacing;
   }
 }
 
