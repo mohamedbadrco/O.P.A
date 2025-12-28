@@ -20,15 +20,16 @@ version: 2.1.0
 
 flutter_native_splash:
   color: "#ffffff"
-  image: app-splash.png
+  image: Group 4.png
   # branding: assets/branding-development.png
   color_dark: "#121212"
   # image_dark: assets/logo-development.png
   # branding_dark: assets/branding-development.png
 
   android_12:
-    image: app-splash.png
-    icon_background_color: "#ffffff"
+    image: Group 4.png
+    color: "#121212"
+    icon_background_color: "#121212"
     # image_dark: assets/logo-development.png
     icon_background_color_dark: "#121212"
   # This package generates native code to customize Flutter's default white native splash screen
